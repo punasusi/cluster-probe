@@ -1,0 +1,14 @@
+# Binary
+cluster-probe
+
+# Workspace
+.probe/
+
+# Kubeconfig credentials
+.kube/
+
+# Claude Code local settings
+.claude/
+
+# Temporary files
+tmp/
