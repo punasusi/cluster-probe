@@ -13,6 +13,26 @@ A read-only Kubernetes cluster diagnostic tool that analyzes cluster health and 
 
 ## Installation
 
+### Download binary
+
+```bash
+# Linux (amd64)
+curl -Lo cluster-probe https://github.com/punasusi/cluster-probe/releases/latest/download/cluster-probe-linux-amd64
+chmod +x cluster-probe
+
+# Linux (arm64)
+curl -Lo cluster-probe https://github.com/punasusi/cluster-probe/releases/latest/download/cluster-probe-linux-arm64
+chmod +x cluster-probe
+
+# macOS (Apple Silicon)
+curl -Lo cluster-probe https://github.com/punasusi/cluster-probe/releases/latest/download/cluster-probe-darwin-arm64
+chmod +x cluster-probe
+
+# macOS (Intel)
+curl -Lo cluster-probe https://github.com/punasusi/cluster-probe/releases/latest/download/cluster-probe-darwin-amd64
+chmod +x cluster-probe
+```
+
 ### Build from source
 
 ```bash
@@ -21,7 +41,6 @@ CGO_ENABLED=0 go build -o cluster-probe ./cmd/cluster-probe
 
 ### Requirements
 
-- Go 1.23+ (for building)
 - kubectl access to a Kubernetes cluster (for initial setup)
 
 ## Quick Start
