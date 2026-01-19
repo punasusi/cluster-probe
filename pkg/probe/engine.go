@@ -5,6 +5,8 @@ import (
 	"sync"
 
 	"github.com/punasusi/cluster-probe/pkg/probe/config"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -14,27 +16,39 @@ type Check interface {
 	Run(ctx context.Context, client kubernetes.Interface) (*CheckResult, error)
 }
 
+type DynamicCheck interface {
+	Check
+	RunDynamic(ctx context.Context, client kubernetes.Interface, dynamicClient dynamic.Interface, discoveryClient discovery.DiscoveryInterface) (*CheckResult, error)
+}
+
 type ConfigurableCheck interface {
 	Check
 	Configure(cfg *config.Config)
 }
 
 type Engine struct {
-	checks	[]Check
-	verbose	bool
-	config	*config.Config
+	checks          []Check
+	verbose         bool
+	config          *config.Config
+	dynamicClient   dynamic.Interface
+	discoveryClient discovery.DiscoveryInterface
 }
 
 func NewEngine(verbose bool) *Engine {
 	return &Engine{
-		checks:		make([]Check, 0),
-		verbose:	verbose,
-		config:		config.DefaultConfig(),
+		checks:  make([]Check, 0),
+		verbose: verbose,
+		config:  config.DefaultConfig(),
 	}
 }
 
 func (e *Engine) SetConfig(cfg *config.Config) {
 	e.config = cfg
+}
+
+func (e *Engine) SetDynamicClients(dynamicClient dynamic.Interface, discoveryClient discovery.DiscoveryInterface) {
+	e.dynamicClient = dynamicClient
+	e.discoveryClient = discoveryClient
 }
 
 func (e *Engine) Register(check Check) {
@@ -63,17 +77,25 @@ func (e *Engine) Run(ctx context.Context, client kubernetes.Interface) ([]CheckR
 		wg.Add(1)
 		go func(c Check) {
 			defer wg.Done()
-			result, err := c.Run(ctx, client)
+			var result *CheckResult
+			var err error
+
+			if dc, ok := c.(DynamicCheck); ok && e.dynamicClient != nil && e.discoveryClient != nil {
+				result, err = dc.RunDynamic(ctx, client, e.dynamicClient, e.discoveryClient)
+			} else {
+				result, err = c.Run(ctx, client)
+			}
+
 			if err != nil {
 				mu.Lock()
 				results = append(results, CheckResult{
-					Name:	c.Name(),
-					Tier:	c.Tier(),
+					Name: c.Name(),
+					Tier: c.Tier(),
 					Results: []Result{{
-						CheckName:	c.Name(),
-						Severity:	SeverityCritical,
-						Message:	"Check failed to execute",
-						Details:	[]string{err.Error()},
+						CheckName: c.Name(),
+						Severity:  SeverityCritical,
+						Message:   "Check failed to execute",
+						Details:   []string{err.Error()},
 					}},
 				})
 				mu.Unlock()

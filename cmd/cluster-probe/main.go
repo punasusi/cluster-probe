@@ -162,6 +162,7 @@ func runProbe(ctx context.Context, inContainer bool) error {
 
 	engine := probe.NewEngine(verbose)
 	engine.SetConfig(cfg)
+	engine.SetDynamicClients(client.DynamicClient(), client.DiscoveryClient())
 
 	engine.Register(checks.NewNodeStatus())
 	engine.Register(checks.NewControlPlane())
@@ -172,6 +173,7 @@ func runProbe(ctx context.Context, inContainer bool) error {
 	engine.Register(checks.NewDeploymentStatus())
 	engine.Register(checks.NewPVCStatus())
 	engine.Register(checks.NewJobFailures())
+	engine.Register(checks.NewStalledResources())
 
 	engine.Register(checks.NewResourceRequests())
 	engine.Register(checks.NewNodeCapacity())

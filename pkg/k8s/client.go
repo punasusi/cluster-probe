@@ -4,13 +4,17 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
 type Client struct {
-	clientset	*kubernetes.Clientset
-	config		clientcmd.ClientConfig
+	clientset       *kubernetes.Clientset
+	dynamicClient   dynamic.Interface
+	discoveryClient *discovery.DiscoveryClient
+	config          clientcmd.ClientConfig
 }
 
 func NewClient(kubeconfigPath string) (*Client, error) {
@@ -28,14 +32,34 @@ func NewClient(kubeconfigPath string) (*Client, error) {
 		return nil, fmt.Errorf("failed to create kubernetes client: %w", err)
 	}
 
+	dynamicClient, err := dynamic.NewForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create dynamic client: %w", err)
+	}
+
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create discovery client: %w", err)
+	}
+
 	return &Client{
-		clientset:	clientset,
-		config:		config,
+		clientset:       clientset,
+		dynamicClient:   dynamicClient,
+		discoveryClient: discoveryClient,
+		config:          config,
 	}, nil
 }
 
 func (c *Client) Clientset() kubernetes.Interface {
 	return c.clientset
+}
+
+func (c *Client) DynamicClient() dynamic.Interface {
+	return c.dynamicClient
+}
+
+func (c *Client) DiscoveryClient() discovery.DiscoveryInterface {
+	return c.discoveryClient
 }
 
 func (c *Client) TestConnection(ctx context.Context) error {
