@@ -5,7 +5,8 @@ A read-only Kubernetes cluster diagnostic tool that analyzes cluster health and 
 ## Features
 
 - **Read-only access** - Uses a dedicated service account with no secrets access
-- **Comprehensive checks** - 20 diagnostic checks across 5 tiers
+- **Comprehensive checks** - 21 diagnostic checks across 5 tiers
+- **Network testing** - Active connectivity tests across all nodes
 - **Scan comparison** - Shows new and resolved issues since last scan
 - **Configurable** - Disable checks, ignore namespaces, adjust thresholds
 - **Multiple output formats** - Text (default) and JSON
@@ -72,6 +73,7 @@ Flags:
   -o, --output string       Output format: text, json (default "text")
       --no-diff             Skip comparison with previous scan
       --init-config         Create example config file at .probe/config.yaml
+      --network-test        Run network connectivity tests (creates temporary pods)
   -h, --help                Help for cluster-probe
 ```
 
@@ -108,6 +110,7 @@ To re-run setup (e.g., after cluster changes):
 | `deployment-status` | Checks deployment replica availability and progress |
 | `pvc-status` | Finds pending or lost PersistentVolumeClaims |
 | `job-failures` | Detects failed jobs and long-running jobs |
+| `stalled-resources` | Detects objects stuck in pending, waiting, or backoff states (including CRDs) |
 
 ### Tier 3: Resource
 | Check | Description |
@@ -132,6 +135,59 @@ To re-run setup (e.g., after cluster changes):
 | `pod-security` | Finds privileged containers, root users, host namespaces |
 | `secrets-usage` | Checks secret exposure patterns (env vars vs volumes) |
 | `service-accounts` | Audits service account usage and configurations |
+
+## Network Testing
+
+The `--network-test` flag runs active connectivity tests by deploying temporary test pods to each node in the cluster:
+
+```bash
+# Run network connectivity tests
+./cluster-probe --network-test
+
+# With verbose output
+./cluster-probe --network-test -v
+```
+
+### Tests Performed
+
+| Test | Description |
+|------|-------------|
+| CoreDNS Connectivity | TCP connection to CoreDNS pods on port 53 |
+| DNS Resolution | Resolves external hostname (github.com) |
+| External TCP | Outbound connection to github.com:443 |
+| Kubelet Connectivity | Cross-node connection to kubelet port 10250 |
+| Pod-to-Pod | Direct connectivity between pods on different nodes |
+
+### How It Works
+
+1. Creates a temporary namespace `cluster-probe-nettest`
+2. Deploys a lightweight test pod (busybox) on each ready node
+3. Runs connectivity tests from each pod
+4. Reports results grouped by test type
+5. Cleans up all test resources
+
+### Requirements
+
+Network testing requires permissions to:
+- Create/delete namespaces
+- Create/delete pods
+- Execute commands in pods (for running tests)
+
+This typically requires your original kubeconfig (not the read-only probe credentials).
+
+### Example Output
+
+```
+  CLUSTER PROBE REPORT
+────────────────────────────────────────────────────────────
+  Cluster: my-cluster (v1.28.0)
+
+  ✓ [network-test-coredns] CoreDNS Connectivity: 6/6 tests passed
+  ✓ [network-test-dns] DNS Resolution: 3/3 tests passed
+  ✓ [network-test-external-tcp] External TCP Connectivity: 3/3 tests passed
+  ✓ [network-test-kubelet] Kubelet Connectivity: 6/6 tests passed
+  ✓ [network-test-pod-to-pod] Pod-to-Pod Connectivity: 6/6 tests passed
+```
 
 ## Output Formats
 
