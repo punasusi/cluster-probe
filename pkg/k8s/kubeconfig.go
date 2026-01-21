@@ -7,6 +7,9 @@ import (
 
 func DiscoverKubeconfig(flagValue string, inContainer bool) string {
 	if flagValue != "" {
+		if inContainer && !hasPrefix(flagValue, "/host/") {
+			return "/host" + flagValue
+		}
 		return flagValue
 	}
 
@@ -34,4 +37,8 @@ func DiscoverKubeconfig(flagValue string, inContainer bool) string {
 	}
 
 	return ""
+}
+
+func hasPrefix(s, prefix string) bool {
+	return len(s) >= len(prefix) && s[:len(prefix)] == prefix
 }

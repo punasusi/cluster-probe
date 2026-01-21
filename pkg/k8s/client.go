@@ -7,6 +7,7 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -15,6 +16,7 @@ type Client struct {
 	dynamicClient   dynamic.Interface
 	discoveryClient *discovery.DiscoveryClient
 	config          clientcmd.ClientConfig
+	restConfig      *rest.Config
 }
 
 func NewClient(kubeconfigPath string) (*Client, error) {
@@ -47,7 +49,12 @@ func NewClient(kubeconfigPath string) (*Client, error) {
 		dynamicClient:   dynamicClient,
 		discoveryClient: discoveryClient,
 		config:          config,
+		restConfig:      restConfig,
 	}, nil
+}
+
+func (c *Client) RESTConfig() *rest.Config {
+	return c.restConfig
 }
 
 func (c *Client) Clientset() kubernetes.Interface {
