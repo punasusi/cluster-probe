@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"syscall"
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -465,8 +467,58 @@ func (s *Setup) generateKubeconfig(ctx context.Context, outputPath string, token
 		return fmt.Errorf("failed to set permissions: %w", err)
 	}
 
+	if err := s.chownToRealUser(outputPath); err != nil {
+		s.log("Warning: could not change ownership: %v", err)
+	}
+
+	if err := s.chownToRealUser(outputDir); err != nil {
+		s.log("Warning: could not change directory ownership: %v", err)
+	}
+
 	s.log("Generated kubeconfig at %s", outputPath)
 	return nil
+}
+
+func (s *Setup) chownToRealUser(path string) error {
+	uid, gid := getRealUserIDs()
+	if uid < 0 || gid < 0 {
+		return nil
+	}
+
+	return os.Chown(path, uid, gid)
+}
+
+func getRealUserIDs() (int, int) {
+	if sudoUID := os.Getenv("SUDO_UID"); sudoUID != "" {
+		if sudoGID := os.Getenv("SUDO_GID"); sudoGID != "" {
+			uid, uidErr := strconv.Atoi(sudoUID)
+			gid, gidErr := strconv.Atoi(sudoGID)
+			if uidErr == nil && gidErr == nil {
+				return uid, gid
+			}
+		}
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return -1, -1
+	}
+
+	info, err := os.Stat(cwd)
+	if err != nil {
+		return -1, -1
+	}
+
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return -1, -1
+	}
+
+	if stat.Uid == 0 {
+		return -1, -1
+	}
+
+	return int(stat.Uid), int(stat.Gid)
 }
 
 func ProbeKubeconfigPath() string {

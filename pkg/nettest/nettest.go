@@ -57,13 +57,16 @@ func (n *NetworkTest) Run(ctx context.Context) (*NetworkTestReport, error) {
 	}
 
 	if n.verbose {
+		fmt.Fprintln(os.Stderr, "[network-test] Cleaning up any previous test resources...")
+	}
+	_ = n.CleanupTestPods(ctx)
+
+	if n.verbose {
 		fmt.Fprintln(os.Stderr, "[network-test] Creating namespace...")
 	}
 	if err := n.EnsureNamespace(ctx); err != nil {
 		return nil, fmt.Errorf("failed to create namespace: %w", err)
 	}
-
-	_ = n.CleanupTestPods(ctx)
 
 	if n.verbose {
 		fmt.Fprintln(os.Stderr, "[network-test] Listing nodes...")
